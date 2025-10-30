@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Analysis Result | Smart Categorization</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --bg-dark: #1f2833;
+            --text-light: #c5c6c7;
+            --card-bg-alpha: rgba(43, 58, 74, 0.85);
+
+            /* Category Colors */
+            --cat-cooking: #ff8c00;
+            --cat-sports: #1e90ff;
+            --cat-pets-animals: #3cb371;
+            --cat-auto-vehicles: #6a5acd;
+            --cat-education: #9370db;
+        }
+
+        body {
+            background: var(--bg-dark);
+            color: var(--text-light);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px 0;
+            min-height: 100vh;
+        }
+
+        .gradient-bg {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: linear-gradient(45deg, #1f2833, #007bff33, #4e4f51, #007bff33);
+            background-size: 400% 400%;
+            animation: gradient-animation 15s ease infinite;
+            z-index: -2;
+        }
+
+        @keyframes gradient-animation {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .result-card {
+            background: var(--card-bg-alpha);
+            border-radius: 15px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(6px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            padding: 25px;
+            margin-bottom: 25px;
+            opacity: 0;
+            animation: fadeIn 0.8s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; transform: translateY(0); }
+            from { opacity: 0; transform: translateY(20px); }
+        }
+
+        .predicted-category-box {
+            position: relative;
+            text-align: center;
+            padding: 30px;
+            border-radius: 15px;
+            color: white;
+            box-shadow: 0 0 15px var(--glow-color), 0 0 30px var(--glow-color);
+            background-color: var(--glow-color);
+            animation: glow-pulse 2s infinite alternate;
+            margin-bottom: 30px;
+        }
+
+        .predicted-category {
+            font-size: 3rem;
+            font-weight: 900;
+            text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.5);
+        }
+
+        @keyframes glow-pulse {
+            from { box-shadow: 0 0 10px var(--glow-color), 0 0 20px var(--glow-color); }
+            to { box-shadow: 0 0 20px var(--glow-color), 0 0 40px var(--glow-color); }
+        }
+
+        .transcript-box {
+            max-height: 350px;
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+
+        .highlight {
+            background-color: #ffc107;
+            color: black;
+            font-weight: bold;
+            padding: 1px 3px;
+            border-radius: 3px;
+            display: inline-block;
+            box-shadow: 0 0 5px #ffc107;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            transition: width 1.5s ease-out;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 10px;
+            font-weight: bold;
+            color: white;
+            white-space: nowrap;
+        }
+
+        .bg-cooking { background-color: var(--cat-cooking) !important; }
+        .bg-sports { background-color: var(--cat-sports) !important; }
+        .bg-auto-vehicles { background-color: var(--cat-auto-vehicles) !important; }
+        .bg-pets-animals { background-color: var(--cat-pets-animals) !important; }
+        .bg-education { background-color: var(--cat-education) !important; }
+
+        .metric-card {
+            background-color: #3b4d61;
+            border-radius: 10px;
+            border-left: 5px solid var(--primary-color);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .hover-glow {
+            transition: all 0.3s;
+            box-shadow: 0 0 0 #000000;
+        }
+
+        .hover-glow:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(40, 167, 69, 0.8);
+        }
+    </style>
+</head>
+<body>
+    <div class="gradient-bg"></div>
+    <div class="container py-5">
+        <div class="row mb-4">
+            <div class="col-12 text-center">
+                <h1 class="text-light"><i class="bi bi-check-circle-fill me-2"></i> Classification Result</h1>
+                <p class="fs-5 text-warning mb-2">True Label (for Tracking): **{{ true_label }}**</p>
+                <p class="text-muted">Total Videos Tested: <strong class="text-light">{{ total_videos }}</strong></p>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-6">
+                {% set prediction_class = predicted_category.lower() | replace(' ', '-') | replace('&', 'and') %}
+                <div class="predicted-category-box bg-{{ prediction_class }}" style="--glow-color: var(--cat-{{ prediction_class }}); background-color: var(--cat-{{ prediction_class }});">
+                    <p class="mb-1 fs-6">PREDICTED CATEGORY</p>
+                    <p class="predicted-category">{{ predicted_category }}</p>
+                </div>
+
+                <div class="result-card">
+                    <h2><i class="bi bi-mic-fill me-2"></i> Extracted Audio</h2>
+                    <div class="text-center">
+                        <audio controls class="w-100">
+                            <source src="{{ audio_url }}" type="audio/mp3">
+                            Your browser does not support the audio element.
+                        </audio>
+                        <p class="text-muted mt-2 small">Audio File: {{ audio_url.split('/')[-1] }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="result-card">
+                    <h2><i class="bi bi-bar-chart-steps me-2"></i> Probability Scores</h2>
+                    {% for category, prob in sorted_probs %}
+                        {% set category_class = category.lower() | replace(' ', '-') | replace('&', 'and') %}
+                        <div class="mb-3">
+                            <div class="fw-bold mb-1" style="color: var(--cat-{{ category_class }});">{{ category }}</div>
+                            <div class="progress" style="height: 30px; border-radius: 15px;">
+                                <div class="progress-bar progress-bar-fill bg-{{ category_class }}" 
+                                    role="progressbar" 
+                                    style="width: 0%;" 
+                                    data-target-width="{{ "%.2f"|format(prob * 100) }}%"
+                                    aria-valuenow="{{ "%.2f"|format(prob * 100) }}" 
+                                    aria-valuemin="0" aria-valuemax="100">
+                                    {{ "%.2f"|format(prob * 100) }}%
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="result-card">
+                    <h2><i class="bi bi-file-text-fill me-2"></i> Transcript (Keywords Highlighted)</h2>
+                    <div class="transcript-box p-3 bg-dark rounded">
+                        <p id="highlighted-text" style="white-space: pre-wrap; font-size: 1.05rem; line-height: 1.6;"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-lg-12">
+                <div class="result-card" style="animation-delay: 0.6s;">
+                    <h2 class="text-center mb-4"><i class="bi bi-gear-wide-connected me-2"></i> Model Performance Metrics</h2>
+
+                    <h3 class="mt-4 mb-3 text-light fs-5 border-bottom border-secondary pb-2">Initial Training Metrics</h3>
+                    <div class="row g-4 text-center">
+                        <div class="col-md-4">
+                            <div class="card metric-card p-3 shadow-sm" style="--primary-color: var(--cat-sports);">
+                                <small class="text-muted">Macro Precision</small>
+                                <div class="metric-value">{{ "%.4f"|format(metrics.precision) }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card metric-card p-3 shadow-sm" style="--primary-color: var(--cat-education);">
+                                <small class="text-muted">Macro Recall</small>
+                                <div class="metric-value">{{ "%.4f"|format(metrics.recall) }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card metric-card p-3 shadow-sm" style="--primary-color: var(--cat-cooking);">
+                                <small class="text-muted">Macro F1 Score</small>
+                                <div class="metric-value">{{ "%.4f"|format(metrics.f1_score) }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 class="mt-5 mb-3 text-light fs-5 border-bottom border-secondary pb-2">Confusion Matrix (Tracking All Inputs)</h3>
+                    <div class="row text-center mb-3">
+                        <div class="col-6">
+                            <p class="mb-0 text-secondary">Overall Accuracy:</p>
+                            <strong class="fs-5 text-success" id="cm-accuracy">--</strong>
+                        </div>
+                        <div class="col-6">
+                            <p class="mb-0 text-secondary">Overall F1 Score:</p>
+                            <strong class="fs-5 text-success" id="cm-f1">--</strong>
+                        </div>
+                    </div>
+                    <div id="confusion-matrix-table" class="table-responsive"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mt-5">
+            <a href="{{ url_for('upload_page') }}" class="btn btn-lg btn-success hover-glow">
+                <i class="bi bi-arrow-clockwise me-2"></i> Re-upload Another Video &rarr;
+            </a>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('highlighted-text').innerHTML = `{{ highlighted_transcript | safe }}`;
+
+        function animateProgressBars() {
+            const progressBars = document.querySelectorAll('.progress-bar-fill');
+            progressBars.forEach(bar => {
+                const targetWidth = bar.getAttribute('data-target-width');
+                setTimeout(() => {
+                    bar.style.width = targetWidth;
+                }, 100);
+            });
+        }
+
+        function fetchConfusionMatrix() {
+    fetch('/get_cm_data')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('cm-accuracy').textContent = (data.cm_metrics.accuracy * 100).toFixed(2) + '%';
+            document.getElementById('cm-f1').textContent = data.cm_metrics.f1_score.toFixed(4);
+
+            const cmTableDiv = document.getElementById('confusion-matrix-table');
+            let tableHTML = '<table class="table table-dark table-striped table-hover text-center cm-table">';
+            tableHTML += '<thead><tr><th>True \\ Pred</th>';
+            data.categories.forEach(cat => tableHTML += `<th>${cat}</th>`);
+            tableHTML += '<th class="bg-secondary text-dark">Total</th></tr></thead><tbody>';
+
+            data.cm_data.forEach(row => {
+                tableHTML += `<tr><td class="table-secondary text-dark fw-bold">${row['True Label']}</td>`;
+                data.categories.forEach(cat => {
+                    let value = row[cat];
+                    let cellClass = 'table-dark';
+
+                    // ✅ Only diagonal cells (true == pred) are green
+                    if (row['True Label'] === cat) {
+                        cellClass = 'bg-success text-white fw-bold';
+                    }
+
+                    tableHTML += `<td class="${cellClass}">${value}</td>`;
+                });
+                tableHTML += `<td class="table-secondary text-dark fw-bold">${row['Total']}</td></tr>`;
+            });
+
+            tableHTML += '</tbody></table>';
+            cmTableDiv.innerHTML = tableHTML;
+        })
+        .catch(error => console.error('Error fetching CM data:', error));
+}
+
+
+        document.addEventListener('DOMContentLoaded', () => {
+            animateProgressBars();
+            fetchConfusionMatrix();
+        });
+    </script>
+</body>
+</html>
